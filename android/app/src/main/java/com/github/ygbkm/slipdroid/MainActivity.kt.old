@@ -1,0 +1,202 @@
+package com.github.ygbkm.slipdroid
+
+import android.Manifest
+import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
+import android.os.Bundle
+import android.os.IBinder
+import android.util.Log
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
+//import androidx.work.WorkerParameters
+import com.github.ygbkm.slipdroid.ui.theme.SlipDroidTheme
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+
+const val sdk33_Tiramisu = 33
+const val sdk34_UpsideDownCake = 34
+
+const val notifChannelID_audioService = "audio_service"
+
+fun installAndRunBinary(context: Context) {
+
+	val binaryName = "slipstream-client"
+	val internalPath = File(context.filesDir, binaryName)
+
+	// 1. Copy from assets to internal storage
+	context.assets.open("bin/$binaryName").use { input ->
+		FileOutputStream(internalPath).use { output ->
+			input.copyTo(output)
+		}
+	}
+
+	// 2. IMPORTANT: Set execution permissions
+	internalPath.setExecutable(true)
+
+	// 3. Execute
+	thread {
+		try {
+			val process = ProcessBuilder()
+			.command(internalPath.absolutePath, "--arg1", "value")
+			.directory(context.filesDir)
+			.redirectErrorStream(true)
+			.start()
+
+			// Read output (Logcat)
+			process.inputStream.bufferedReader().forEachLine { line ->
+				Log.d("SlipstreamBin", line)
+			}
+		} catch (e: Exception) {
+			Log.e("SlipstreamBin", "Failed to run binary", e)
+		}
+	}
+}
+
+class MainApp : Application() {
+	override fun onCreate() {
+		super.onCreate()
+		val channel = NotificationChannel(
+			notifChannelID_audioService,
+			"Audio service",
+			NotificationManager.IMPORTANCE_MIN,
+		)
+		val notifMgr = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+		notifMgr.createNotificationChannel(channel)
+	}
+}
+
+class AudioService : Service() {
+
+	enum class Action {
+		START,
+		STOP,
+	}
+
+	override fun onBind(p0: Intent?): IBinder? {
+		//TODO("Not yet implemented")
+		return null
+	}
+
+	override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+		when (intent?.action) {
+			Action.START.toString() -> start()
+			Action.STOP.toString() -> stopSelf()
+		}
+		return super.onStartCommand(intent, flags, startId)
+	}
+
+	private fun start() {
+		val notif = NotificationCompat.Builder(this, notifChannelID_audioService)
+			.setContentTitle("PhoneMic")
+			.setContentText("Audio Service Running")
+			.setSmallIcon(R.drawable.ic_launcher_foreground)
+			.build()
+		val svcId = 1
+		if (Build.VERSION.SDK_INT >= sdk34_UpsideDownCake) {
+			startForeground(
+				svcId,
+				notif,
+				ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+			)
+		} else {
+			startForeground(svcId, notif)
+		}
+	}
+}
+
+// class AudioWorker(
+// 	private val context: Context,
+// 	private val params: WorkerParameters,
+// ) : CoroutineWorker(context, params) {
+// 	override fun doWork(): Result {
+// 	}
+// }
+
+class MainActivity : ComponentActivity() {
+
+	val tag = "mainAcTiViTy"
+
+	override fun onCreate(savedInstanceState: Bundle?) {
+		super.onCreate(savedInstanceState)
+		enableEdgeToEdge()
+		ActivityCompat.requestPermissions(
+			this,
+			arrayOf(Manifest.permission.RECORD_AUDIO),
+			0,
+		)
+		if (Build.VERSION.SDK_INT >= sdk33_Tiramisu) {
+			ActivityCompat.requestPermissions(
+				this,
+				arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+				0,
+			)
+		}
+		setContent {
+			SlipDroidTheme {
+				Column(
+					modifier = Modifier.fillMaxSize(),
+					horizontalAlignment = Alignment.CenterHorizontally,
+					verticalArrangement = Arrangement.Center,
+				) {
+					Button(onClick = { audioServiceAction(AudioService.Action.START) }) {
+						Text(text = "Start audio service")
+					}
+					Button(onClick = { audioServiceAction(AudioService.Action.STOP) }) {
+						Text(text = "Stop audio service")
+					}
+				}
+				//Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+				//	Greeting(
+				//		name = "Android",
+				//		modifier = Modifier.padding(innerPadding)
+				//	)
+				//}
+			}
+		}
+
+		GlobalScope.launch {
+			delay(3000L)
+			Log.d(tag, "coroutine says hello from ${Thread.currentThread().name}")
+		}
+		Log.d(tag, "hello from ${Thread.currentThread().name}")
+	}
+
+	private fun audioServiceAction(action: AudioService.Action) {
+		val intent = Intent(applicationContext, AudioService::class.java)
+		intent.action = action.toString()
+		startService(intent)
+	}
+}
+
+@Composable
+fun Greeting(name: String, modifier: Modifier = Modifier) {
+	Text(
+		text = "Hello $name!",
+		modifier = modifier
+	)
+}
+
+@Preview(showBackground = true)
+@Composable
+fun GreetingPreview() {
+	SlipDroidTheme {
+		Greeting("Android")
+	}
+}
