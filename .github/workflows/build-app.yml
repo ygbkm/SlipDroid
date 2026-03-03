@@ -1,0 +1,29 @@
+name: build-app
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  build:
+
+    permissions:
+      contents: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Build APK
+        run: |
+          cd android
+          ./gradlew clean assembleRelease --no-daemon
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: slipdroid-apk
+          path: android/app/build/outputs/**/*.apk
