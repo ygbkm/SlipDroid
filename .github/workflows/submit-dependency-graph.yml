@@ -1,0 +1,25 @@
+name: submit-dependency-graph
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+
+  submit-dependency-graph:
+
+    permissions:
+      contents: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Checkout repository
+      uses: actions/checkout@v6
+
+    - name: Generate and submit dependency graph
+      uses: gradle/actions/dependency-submission@v5
+      with:
+        build-root-directory: android
