@@ -24,11 +24,13 @@ jobs:
           KEYSTORE_PATH=$(pwd)/release.jks
           KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD
           KEY_ALIAS=$KEY_ALIAS
+          KEY_PASSWORD=$KEY_PASSWORD
           EOF
         env:
           KEYSTORE_CONTENT: ${{ secrets.ANDROID_KEYSTORE_CONTENT_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
       - name: Build APK
         run: |
