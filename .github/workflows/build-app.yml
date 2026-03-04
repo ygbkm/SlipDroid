@@ -17,10 +17,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Install the signing keystore
+        env:
+          KEYSTORE_CONTENT: ${{ secrets.ANDROID_KEYSTORE_CONTENT_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          base64 --decode <<< "$KEYSTORE_CONTENT" > release.jks
+          cat >> android/gradle.properties << EOF
+          KEYSTORE_PATH=release.jks
+          KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD
+          KEY_ALIAS=$KEY_ALIAS
+          EOF
+
       - name: Build APK
         run: |
           cd android
-          ./gradlew clean assembleRelease --no-daemon
+          ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v7
